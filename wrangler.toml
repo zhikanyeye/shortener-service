@@ -1,23 +1,21 @@
 name = "shortener-service"
 main = "worker/index.js"
-compatibility_date = "2023-12-01"
+compatibility_date = "2024-12-01"
 
 [build]
 command = "npm run build"
-upload_dir = "public"
 
 [env.production]
-vars = { 
-  ADMIN_USER = "your_admin@email.com",
-  ADMIN_PASS = "YourSecurePassword123!",
-  SALT = "随机生成盐值" # 用 openssl rand -hex 16 生成
-}
+# Use Cloudflare Secrets instead of hardcoded values
+# Add secrets using: wrangler secret put ADMIN_USER
+# Add secrets using: wrangler secret put ADMIN_PASS
+# Add secrets using: wrangler secret put SALT
 
 [[d1_databases]]
 binding = "DB"
 database_name = "shortener-db"
-database_id = "YOUR_DB_ID"
+database_id = "" 
 
 [[kv_namespaces]]
 binding = "KV"
-id = "YOUR_KV_ID"
+id = "" 
