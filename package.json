@@ -3,8 +3,11 @@
   "version": "1.0.0",
   "scripts": {
     "start": "wrangler dev",
-    "build": "esbuild src/main.jsx --bundle --outfile=public/dist.js --minify --loader:.jsx=jsx --loader:.js=jsx",
-    "deploy": "wrangler deploy"
+    "clean": "if exist public\\dist.js del public\\dist.js",
+    "build": "esbuild src/main.jsx --bundle --outfile=public/dist.js --minify --loader:.jsx=jsx --loader:.js=jsx --format=esm --target=es2020 --sourcemap",
+    "build:all": "npm run clean && npm run build",
+    "deploy": "wrangler deploy",
+    "deploy:full": "npm run build:all && npm run deploy"
   },
   "dependencies": {
     "react": "^18.2.0",
