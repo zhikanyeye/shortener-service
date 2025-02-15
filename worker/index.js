@@ -1,5 +1,5 @@
 import { handleRequest } from './shortener';
-import { handleAdminRoutes, adminAuth } from './admin';
+import { handleAdminRoutes, adminAuth, handleAdminLogin } from './admin';
 
 export default {
   async fetch(request, env, ctx) {
