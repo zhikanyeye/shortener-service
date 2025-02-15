@@ -1,27 +1,5 @@
-export async function handleAdminRequest(request, env) {
-  const url = new URL(request.url);
-
-  // 处理登录
-  if (url.pathname === '/api/admin/login') {
-    const { username, password } = await request.json();
-    
-    if (username !== env.ADMIN_USER || password !== env.ADMIN_PASS) {
-      return new Response('认证失败', { status: 401 });
-    }
-
-    const sessionId = crypto.randomUUID();
-    await env.KV.put(`admin_session:${sessionId}`, 'valid', {
-      expirationTtl: 86400 // 1天有效期
-    });
-
-    return new Response(JSON.stringify({ success: true }), {
-      headers: {
-        'Set-Cookie': `session=${sessionId}; Path=/; HttpOnly; Secure; SameSite=Lax`
-      }
-    });
-  }
-
-  // 验证管理员身份
+// 管理员认证函数
+export async function adminAuth(request, env) {
   const cookie = request.headers.get('Cookie') || '';
   const session = cookie.match(/session=([^;]+)/)?.[1];
 
@@ -31,6 +9,13 @@ export async function handleAdminRequest(request, env) {
       headers: { 'Location': '/login' }
     });
   }
+  
+  return null; // 认证通过
+}
+
+// 管理路由处理函数
+export async function handleAdminRoutes(request, env) {
+  const url = new URL(request.url);
 
   // 获取所有短链
   if (url.pathname === '/api/admin/links') {
@@ -57,4 +42,24 @@ export async function handleAdminRequest(request, env) {
   }
 
   return new Response('Not Found', { status: 404 });
+}
+
+// 处理管理员登录
+export async function handleAdminLogin(request, env) {
+  const { username, password } = await request.json();
+  
+  if (username !== env.ADMIN_USER || password !== env.ADMIN_PASS) {
+    return new Response('认证失败', { status: 401 });
+  }
+
+  const sessionId = crypto.randomUUID();
+  await env.KV.put(`admin_session:${sessionId}`, 'valid', {
+    expirationTtl: 86400 // 1天有效期
+  });
+
+  return new Response(JSON.stringify({ success: true }), {
+    headers: {
+      'Set-Cookie': `session=${sessionId}; Path=/; HttpOnly; Secure; SameSite=Lax`
+    }
+  });
 }
