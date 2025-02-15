@@ -1,3 +1,34 @@
+export async function adminAuth(request, env) {
+  const cookie = request.headers.get('Cookie') || '';
+  const session = cookie.match(/session=([^;]+)/)?.[1];
+  
+  if(!session || !await env.KV.get(`admin_session:${session}`)) {
+    return new Response('请先登录', { 
+      status: 302,
+      headers: { 'Location': '/login' }
+    });
+  }
+}
+
+export async function handleAdminLogin(request, env) {
+  const { username, password } = await request.json();
+  
+  if(username !== env.ADMIN_USER || password !== env.ADMIN_PASS) {
+    return new Response('认证失败', { status: 401 });
+  }
+
+  const sessionId = crypto.randomUUID();
+  await env.KV.put(`admin_session:${sessionId}`, 'valid', {
+    expirationTtl: 86400 // 1天有效期
+  });
+
+  return new Response(JSON.stringify({ success: true }), {
+    headers: {
+      'Set-Cookie': `session=${sessionId}; Path=/; HttpOnly; Secure; SameSite=Lax`
+    }
+  });
+}
+
 export async function handleAdminRoutes(request, env) {
   const url = new URL(request.url);
   
