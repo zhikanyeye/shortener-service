@@ -1,58 +1,74 @@
 import { handleRequest } from './shortener';
 import { handleAdminRoutes, adminAuth, handleAdminLogin } from './admin';
 
-// 处理静态文件
-async function handleStaticFile(url) {
-  const publicFiles = {
-    '/': '/public/index.html',
-    '/dist.js': '/public/dist.js',
-  };
-
-  const filePath = publicFiles[url.pathname] || url.pathname;
+// 检查链接是否过期
+async function checkExpired(env, slug) {
+  const result = await env.DB.prepare(`
+    SELECT expires_at 
+    FROM links 
+    WHERE slug = ?
+  `).bind(slug).first();
   
-  // 如果是根路径，返回 index.html
-  if (url.pathname === '/') {
-    return new Response(indexHtml, {
-      headers: {
-        'content-type': 'text/html;charset=UTF-8',
-      },
-    });
-  }
-
-  // 如果是dist.js，返回构建后的js文件
-  if (url.pathname === '/dist.js') {
-    return new Response(distJs, {
-      headers: {
-        'content-type': 'application/javascript',
-      },
-    });
-  }
-
-  return null;
+  if (!result) return true;
+  if (!result.expires_at) return false;
+  
+  return Date.now() / 1000 > result.expires_at;
 }
-
-// HTML 内容
-const indexHtml = `<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>短链服务</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body>
-  <div id="root"></div>
-  <script src="/dist.js"></script>
-</body>
-</html>`;
 
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     
-    // 首先尝试处理静态文件
-    const staticResponse = await handleStaticFile(url);
-    if (staticResponse) return staticResponse;
+    // 处理静态文件
+    if (url.pathname === '/' || url.pathname === '/admin' || url.pathname === '/login') {
+      const html = `<!DOCTYPE html>
+      <html lang="zh-CN">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>短链服务 - 简单而强大的链接管理工具</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+        <style>
+          body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+          }
+          #root {
+            min-height: 100vh;
+          }
+          .gradient-text {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+          }
+          .animate-float {
+            animation: float 6s ease-in-out infinite;
+          }
+          @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+          }
+        </style>
+      </head>
+      <body class="bg-gray-50">
+        <div id="root"></div>
+        <script src="/dist.js"></script>
+      </body>
+      </html>`;
+      
+      return new Response(html, {
+        headers: { 'Content-Type': 'text/html' },
+      });
+    }
+    
+    if (url.pathname === '/dist.js') {
+      return new Response(distJs, {
+        headers: { 'Content-Type': 'application/javascript' },
+      });
+    }
     
     // 管理路由处理
     if(url.pathname.startsWith('/api/admin')) {
@@ -68,7 +84,19 @@ export default {
       return handleAdminRoutes(request, env);
     }
     
-    // 短链路由处理
+    // 短链重定向
+    if(!url.pathname.startsWith('/api/')) {
+      const slug = url.pathname.slice(1);
+      if(slug) {
+        // 检查链接是否过期
+        const expired = await checkExpired(env, slug);
+        if(expired) {
+          return new Response('Link has expired', { status: 410 });
+        }
+      }
+    }
+    
+    // 短链API处理
     return handleRequest(request, env);
   }
 };
